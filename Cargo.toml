@@ -1,0 +1,16 @@
+[package]
+name = "zennolab-products-searcher"
+version = "0.1.0"
+description = "ZennoLab products searcher."
+authors = ["Yuriy Zymlex <www.zymlex.com>", "ZennoHelpers <github.com/ZennoHelpers>"]
+edition = "2024"
+resolver = "3"
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+
+[dependencies]
+windows-registry = "0.5"
+quick-xml = "0.37.5"
+url = "2.5.4"
