@@ -13,12 +13,6 @@ fn main() {
                 println!("   Type: {}", product.product_type);
                 println!("   Path: {}", product.install_path.display());
                 println!("   Executables: {:?}", product.executable_names());
-                println!("   Accessible: {}", product.is_accessible());
-                
-                if !product.is_fully_installed {
-                    println!("   ⚠️  Warning: Product installation appears incomplete");
-                }
-                
                 println!();
             }
             

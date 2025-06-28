@@ -144,8 +144,14 @@ fn create_product(
         .map(|status| status == "True")
         .unwrap_or(false);
 
+    // Skip products that are not fully installed
     if !is_fully_installed {
-        debug!("Product not fully installed: {} {} {}", product_name, version, language_code);
+        debug!("Product not fully installed, skipping: {} {} {}", product_name, version, language_code);
+        return Err(ZennoLabError::IncompleteInstallation {
+            name: product_name.to_string(),
+            version: version.to_string(),
+            language: language_code.to_string(),
+        });
     }
 
     // Get installation directory
@@ -169,6 +175,5 @@ fn create_product(
         version.to_string(),
         language_code.to_string(),
         PathBuf::from(install_dir),
-        is_fully_installed,
     ))
 }

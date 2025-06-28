@@ -49,7 +49,6 @@ pub struct ZennoLabProduct {
     pub version: String,
     pub language: String,
     pub install_path: PathBuf,
-    pub is_fully_installed: bool,
 }
 
 impl ZennoLabProduct {
@@ -59,7 +58,6 @@ impl ZennoLabProduct {
         version: String,
         language: String,
         install_path: PathBuf,
-        is_fully_installed: bool,
     ) -> Self {
         Self {
             product_type,
@@ -67,23 +65,11 @@ impl ZennoLabProduct {
             version,
             language,
             install_path,
-            is_fully_installed,
         }
     }
 
     pub fn executable_names(&self) -> &'static [&'static str] {
         self.product_type.executable_names()
-    }
-
-    pub fn executable_paths(&self) -> Vec<PathBuf> {
-        self.executable_names()
-            .iter()
-            .map(|exe| self.install_path.join(format!("{}.exe", exe)))
-            .collect()
-    }
-
-    pub fn is_accessible(&self) -> bool {
-        self.is_fully_installed && self.install_path.exists()
     }
 }
 
@@ -91,15 +77,10 @@ impl Display for ZennoLabProduct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} {} {} ({})",
+            "{} {} {}",
             self.name,
             self.version,
-            self.language,
-            if self.is_fully_installed {
-                "installed"
-            } else {
-                "incomplete"
-            }
+            self.language
         )
     }
 }

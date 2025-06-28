@@ -12,7 +12,6 @@
 //!         println!("Found: {}", product);
 //!         println!("  Path: {}", product.install_path.display());
 //!         println!("  Executables: {:?}", product.executable_names());
-//!         println!("  Accessible: {}", product.is_accessible());
 //!     }
 //!     
 //!     Ok(())
