@@ -1,11 +1,12 @@
 use thiserror::Error;
+use std::io;
 
 pub type Result<T> = std::result::Result<T, ZennoLabError>;
 
 #[derive(Error, Debug)]
 pub enum ZennoLabError {
-    #[error("Registry error: {0}")]
-    Registry(#[from] windows_registry::Error),
+    #[error("Registry access error: {0}")]
+    Registry(#[from] io::Error),
     
     #[error("Unsupported product: {name} {version} {language}")]
     UnsupportedProduct {
@@ -33,4 +34,10 @@ pub enum ZennoLabError {
     
     #[error("Invalid language code: {code}")]
     InvalidLanguageCode { code: String },
+    
+    #[error("Registry key not found: {key}")]
+    RegistryKeyNotFound { key: String },
+    
+    #[error("Registry value not found: {value}")]
+    RegistryValueNotFound { value: String },
 }

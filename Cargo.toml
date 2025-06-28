@@ -11,7 +11,7 @@ autotests = false
 autobenches = false
 
 [[example]]
-name = "usage"
+name = "main"
 required-features = []
 
 [dependencies]

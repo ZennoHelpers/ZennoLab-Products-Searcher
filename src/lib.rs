@@ -3,10 +3,10 @@
 //! ## Example
 //! 
 //! ```rust
-//! use zennolab_products_searcher::{search_zennolab_products, ZennoLabProduct};
+//! use zennolab_products_searcher::search_products;
 //! 
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let products = search_zennolab_products()?;
+//!     let products = search_products()?;
 //!     
 //!     for product in products {
 //!         println!("Found: {}", product);
@@ -27,4 +27,4 @@ pub mod searcher;
 // Re-export main types for convenience
 pub use error::{Result, ZennoLabError};
 pub use product::{ProductType, ZennoLabProduct};
-pub use searcher::{search_zennolab_products, ZennoLabSearcher};
+pub use searcher::search_products;

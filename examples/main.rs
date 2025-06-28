@@ -1,10 +1,10 @@
-use zennolab_products_searcher::{search_zennolab_products, ProductType, ZennoLabError};
+use zennolab_products_searcher::search_products;
 
 fn main() {
     // Initialize logger to see debug information
     env_logger::init();
 
-    match search_zennolab_products() {
+    match search_products() {
         Ok(products) => {
             println!("✅ Found {} ZennoLab products:\n", products.len());
             
@@ -32,14 +32,6 @@ fn main() {
             for (product_type, products) in by_type {
                 println!("   {}: {} installations", product_type, products.len());
             }
-        }
-        Err(ZennoLabError::NoProductsFound) => {
-            println!("❌ No ZennoLab products found on this system.");
-            println!("   Make sure you have ZennoLab products installed.");
-        }
-        Err(ZennoLabError::Registry(e)) => {
-            println!("❌ Registry access error: {}", e);
-            println!("   This might be a permissions issue or the registry key doesn't exist.");
         }
         Err(e) => {
             println!("❌ Error: {}", e);
