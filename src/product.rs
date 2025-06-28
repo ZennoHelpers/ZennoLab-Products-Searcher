@@ -1,48 +1,105 @@
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 
-pub struct ZennoLabProduct<'a> {
-    pub(crate) name: String,
-    pub(crate) ver: String,
-    pub(crate) lang: String,
-    pub(crate) install_path: PathBuf,
-    pub(crate) exe_names: &'a [&'a str],
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum ProductType {
+    ZennoPoster,
+    ZennoProjectMaker,
+    ZennoDroid,
+    ZennoBox,
+    ProxyChecker,
+    CapMonster,
 }
 
-impl<'a> ZennoLabProduct<'a> {
-    pub(crate) fn new(name: String, ver: String, lang: String, install_path: String, exe_names: &'a [&'a str]) -> Self {
+impl ProductType {
+    pub fn executable_names(&self) -> &'static [&'static str] {
+        match self {
+            ProductType::ZennoPoster => &["ProjectMaker", "ZennoPoster"],
+            ProductType::ZennoProjectMaker => &["ProjectMaker", "ProjectMakerZD"],
+            ProductType::ZennoDroid => &["ProjectMakerZD", "ZennoDroid"],
+            ProductType::ZennoBox => &["ZennoBox"],
+            ProductType::ProxyChecker => &["ProxyChecker"],
+            ProductType::CapMonster => &["CapMonster", "CapMonsterMCS", "LicenseHelper"],
+        }
+    }
+}
+
+impl Display for ProductType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProductType::ZennoPoster => write!(f, "ZennoPoster"),
+            ProductType::ZennoProjectMaker => write!(f, "ZennoProjectMaker"),
+            ProductType::ZennoDroid => write!(f, "ZennoDroid"),
+            ProductType::ZennoBox => write!(f, "ZennoBox"),
+            ProductType::ProxyChecker => write!(f, "ProxyChecker"),
+            ProductType::CapMonster => write!(f, "CapMonster"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct ZennoLabProduct {
+    pub product_type: ProductType,
+    pub name: String,
+    pub version: String,
+    pub language: String,
+    pub install_path: PathBuf,
+    pub is_fully_installed: bool,
+}
+
+impl ZennoLabProduct {
+    pub fn new(
+        product_type: ProductType,
+        name: String,
+        version: String,
+        language: String,
+        install_path: PathBuf,
+        is_fully_installed: bool,
+    ) -> Self {
         Self {
+            product_type,
             name,
-            ver,
-            lang,
-            install_path: PathBuf::from(install_path),
-            exe_names,
+            version,
+            language,
+            install_path,
+            is_fully_installed,
         }
     }
 
-    pub fn name(&'a self) -> &'a str {
-        &self.name
+    pub fn executable_names(&self) -> &'static [&'static str] {
+        self.product_type.executable_names()
     }
 
-    pub fn ver(&'a self) -> &'a str {
-        &self.ver
+    pub fn executable_paths(&self) -> Vec<PathBuf> {
+        self.executable_names()
+            .iter()
+            .map(|exe| self.install_path.join(format!("{}.exe", exe)))
+            .collect()
     }
 
-    pub fn lang(&'a self) -> &'a str {
-        &self.lang
-    }
-
-    pub fn install_path(&'a self) -> &'a PathBuf {
-        &self.install_path
-    }
-
-    pub fn exe_names(&'a self) -> &'a [&'a str] {
-        &self.exe_names
+    pub fn is_accessible(&self) -> bool {
+        self.is_fully_installed && self.install_path.exists()
     }
 }
 
-impl Display for ZennoLabProduct<'_> {
+impl Display for ZennoLabProduct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {} {}", self.name, self.ver, self.lang)
+        write!(
+            f,
+            "{} {} {} ({})",
+            self.name,
+            self.version,
+            self.language,
+            if self.is_fully_installed {
+                "installed"
+            } else {
+                "incomplete"
+            }
+        )
     }
 }

@@ -1,4 +1,8 @@
-pub(crate) fn check_exe_names(name: &str, ver: &str, lang: &str) -> Result<&'static [&'static str], String> {
+pub(crate) fn check_exe_names<'a>(
+    name: &'a str,
+    ver: &'a str,
+    lang: &'a str,
+) -> Result<&'static [&'static str], String> {
     Ok(if name.contains("ZennoPoster") && name.contains("V7") {
         &["ProjectMaker", "ZennoPoster"]
     } else if name.contains("ZennoProjectMaker") {

@@ -1,93 +1,147 @@
-use crate::{exe_filter::check_exe_names, product::ZennoLabProduct};
+use crate::{
+    error::{Result, ZennoLabError},
+    product::ZennoLabProduct,
+    product_detector::ProductDetector,
+};
+use log::{debug, info, warn};
+use std::path::PathBuf;
 use windows_registry::CURRENT_USER;
 
-trait ResultConsumerTrait<R, E> {
-    fn consume<F1: FnOnce(R), F2: FnOnce(E)>(self, f1: F1, f2: F2);
-}
+pub struct ZennoLabSearcher {}
 
-impl<R, E> ResultConsumerTrait<R, E> for Result<R, E> {
-    #[inline]
-    fn consume<F1: FnOnce(R), F2: FnOnce(E)>(self, f1: F1, f2: F2) {
-        match self {
-            Ok(r) => f1(r),
-            Err(e) => f2(e),
-        }
-    }
-}
+impl ZennoLabSearcher {
+    const ZL_REGISTRY_PATH: &str = r"Software\ZennoLab";
 
-pub fn products_searcher<'a>() -> Result<Vec<ZennoLabProduct<'a>>, String> {
-    println!("Started searching for supported products...\n");
+    pub fn search_products(&self) -> Result<Vec<ZennoLabProduct>> {
+        info!("Starting search for ZennoLab products...");
+        
+        let mut products = Vec::new();
+        
+        let zenno_key = CURRENT_USER
+            .open(Self::ZL_REGISTRY_PATH)
+            .map_err(ZennoLabError::Registry)?;
 
-    let mut products = Vec::<ZennoLabProduct>::with_capacity(10);
-
-    CURRENT_USER.open(r"Software\ZennoLab").consume(|zl_root| {
-        zl_root.keys().consume(| key_it | key_it.for_each(|key| {
-            if key.len() == 2 && key == key.to_uppercase() {
-                let lang = key;
-
-                zl_root.open(&lang).consume(|lang_key| lang_key.keys().consume(|prod_iter| prod_iter.for_each(|prod_name|
-                    lang_key.open(&prod_name).consume(|prod_key| prod_key.keys().consume(|ver_iter| ver_iter.for_each(|ver|
-                        prod_key.open(&ver).consume(|ver_key| {
-                            ver_key.get_string("SuccessInstall").consume(|install| {
-                                if install != "True" {
-                                    println!(r"Found not fully installed product: '{prod_name} {ver} {lang}'");
-                                }
-                            }, |e| {
-                                println!(r"Failed to get the product installation status: '{prod_name} {ver} {lang}'. Инфо: {e}");
-                            });
-
-                            ver_key.get_string("InstallDir").consume(|install_path: String| {
-                                check_exe_names(&prod_name, &ver, &lang).consume(|exe_names| {
-                                        let product = ZennoLabProduct::new(
-                                            prod_name.clone(),
-                                            ver.clone(),
-                                            lang.to_owned(),
-                                            install_path,
-                                            exe_names
-                                        );
-                                        println!("Found product: '{}'", &product);
-                                        products.push(product)
-                                    }, |e| {
-                                        println!("{}", e);
-                                    });
-                            }, |e| {
-                                println!(
-                                    r"Failed to retrieve product installation path: '{prod_name} {ver} {lang}'. Info: {e}"
-                                );
-                            })
-                        }, |e| {
-                            println!(
-                                r"Failed to open product section: '{prod_name} {ver} {lang}'. Info: {e}"
-                            );
-                        })), |e| {
-                        println!(
-                            r"Error when parsing version section in product section: '{prod_name}' lang: '{lang}'. Info: '{e}'"
-                        );
-                    }), |e| {
-                        println!(
-                            r"Failed to open product section: '{prod_name}' lang: '{lang}'. Info: '{e}'"
-                        );
-                    })
-                ), |e| {
-                    println!(
-                        r"Error when getting product section in language section: '{lang}'. Info: '{e}'"
-                    );
-                }), |e|{
-                    println!(r"Failed to open the language section: '{lang}'. Info: '{e}'");
-                })
+        for language_code in zenno_key.keys().map_err(ZennoLabError::Registry)? {
+            if !ProductDetector::is_valid_language_code(&language_code) {
+                debug!("Skipping invalid language code: {}", language_code);
+                continue;
             }
-        }), |e|{
-            println!(r"Failed to retrieve registry section в 'HKEY_CURRENT_USER\Software\ZennoLab'. Info: '{e}'");
-        })
-    },|e| {
-        println!(r"Failed to open 'HKEY_CURRENT_USER\Software\ZennoLab'. Info: '{e}'")
-    });
 
-    if products.is_empty() {
-        return Err(r"Not found any installed product.".to_string());
+            match self.search_products_for_language(&zenno_key, &language_code) {
+                Ok(mut lang_products) => {
+                    info!("Found {} products for language '{}'", lang_products.len(), language_code);
+                    products.append(&mut lang_products);
+                }
+                Err(e) => {
+                    warn!("Failed to search products for language '{}': {}", language_code, e);
+                }
+            }
+        }
+
+        if products.is_empty() {
+            return Err(ZennoLabError::NoProductsFound);
+        }
+
+        info!("Found {} total products", products.len());
+        Ok(products)
     }
 
-    println!();
+    fn search_products_for_language(
+        &self,
+        zenno_key: &windows_registry::Key,
+        language_code: &str,
+    ) -> Result<Vec<ZennoLabProduct>> {
+        let mut products = Vec::new();
+        
+        let lang_key = zenno_key
+            .open(language_code)
+            .map_err(ZennoLabError::Registry)?;
 
-    Ok(products)
+        for product_name in lang_key.keys().map_err(ZennoLabError::Registry)? {
+            match self.search_product_versions(&lang_key, &product_name, language_code) {
+                Ok(mut product_versions) => {
+                    products.append(&mut product_versions);
+                }
+                Err(e) => {
+                    warn!("Failed to search versions for product '{}': {}", product_name, e);
+                }
+            }
+        }
+
+        Ok(products)
+    }
+
+    fn search_product_versions(
+        &self,
+        lang_key: &windows_registry::Key,
+        product_name: &str,
+        language_code: &str,
+    ) -> Result<Vec<ZennoLabProduct>> {
+        let mut products = Vec::new();
+        
+        let product_key = lang_key
+            .open(product_name)
+            .map_err(ZennoLabError::Registry)?;
+
+        for version in product_key.keys().map_err(ZennoLabError::Registry)? {
+            match self.create_product(&product_key, product_name, &version, language_code) {
+                Ok(product) => {
+                    info!("Found product: {}", product);
+                    products.push(product);
+                }
+                Err(e) => {
+                    warn!("Failed to create product '{}' version '{}': {}", product_name, version, e);
+                }
+            }
+        }
+
+        Ok(products)
+    }
+
+    fn create_product(
+        &self,
+        product_key: &windows_registry::Key,
+        product_name: &str,
+        version: &str,
+        language_code: &str,
+    ) -> Result<ZennoLabProduct> {
+        let version_key = product_key
+            .open(version)
+            .map_err(ZennoLabError::Registry)?;
+
+        // Check installation status
+        let is_fully_installed = version_key
+            .get_string("SuccessInstall")
+            .map(|status| status == "True")
+            .unwrap_or(false);
+
+        if !is_fully_installed {
+            debug!("Product not fully installed: {} {} {}", product_name, version, language_code);
+        }
+
+        // Get installation directory
+        let install_dir = version_key
+            .get_string("InstallDir")
+            .map_err(|_| ZennoLabError::InstallDirNotFound {
+                name: product_name.to_string(),
+                version: version.to_string(),
+                language: language_code.to_string(),
+            })?;
+
+        // Detect product type
+        let product_type = ProductDetector::detect_product_type(product_name, version)?;
+
+        Ok(ZennoLabProduct::new(
+            product_type,
+            product_name.to_string(),
+            version.to_string(),
+            language_code.to_string(),
+            PathBuf::from(install_dir),
+            is_fully_installed,
+        ))
+    }
+}
+
+pub fn search_zennolab_products() -> Result<Vec<ZennoLabProduct>> {
+    ZennoLabSearcher::new().search_products()
 }

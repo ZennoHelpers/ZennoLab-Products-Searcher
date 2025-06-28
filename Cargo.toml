@@ -10,7 +10,19 @@ autoexamples = false
 autotests = false
 autobenches = false
 
+[[example]]
+name = "usage"
+required-features = []
+
 [dependencies]
 windows-registry = "0.5"
-quick-xml = "0.37.5"
-url = "2.5.4"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"], optional = true }
+log = "0.4"
+
+[features]
+default = []
+serde = ["dep:serde"]
+
+[dev-dependencies]
+env_logger = "0.11"
